@@ -75,7 +75,18 @@ async def add_document_to_vectordb(doc_id: str, chunks: List[Dict[str, str]]) ->
         if settings.VECTOR_DB == "chroma":
             # Add to ChromaDB
             ids = [f"{doc_id}_{i}" for i in range(len(chunks))]
-            metadatas = [chunk["metadata"] for chunk in chunks]
+            
+            # Thêm doc_id vào metadata
+            metadatas = []
+            for chunk in chunks:
+                # Thêm trường doc_id vào metadata
+                metadata = chunk["metadata"].copy()
+                metadata["doc_id"] = doc_id
+                metadatas.append(metadata)
+            
+            # Log để debug
+            logger.info(f"Adding document to ChromaDB with doc_id: {doc_id}")
+            logger.info(f"First metadata example: {metadatas[0] if metadatas else 'No metadata'}")
             
             collection.add(
                 ids=ids,
@@ -201,25 +212,38 @@ async def search_similar_chunks(
         
         if settings.VECTOR_DB == "chroma":
             # Search in ChromaDB
-            where_filter = {"doc_id": file_id} if file_id else {}
+            where_filter = {"doc_id": file_id} if file_id else None
+            
+            # Log query parameters
+            logger.info(f"Searching with query: '{query[:30]}...'")
+            logger.info(f"Search parameters: file_id={file_id}, threshold={similarity_threshold}, top_k={top_k}")
+            logger.info(f"Where filter: {where_filter}")
             
             results = collection.query(
                 query_embeddings=[query_embedding],
                 n_results=top_k,
-                where=where_filter if where_filter else None
+                where=where_filter
             )
             
+            # Log results
+            num_results = len(results['documents'][0]) if results['documents'] else 0
+            logger.info(f"Query returned {num_results} raw results")
+            
             chunks = []
-            for i in range(len(results['documents'][0])):
+            for i in range(len(results['documents'][0]) if results['documents'] else 0):
                 # Only include if above similarity threshold
                 distance = results['distances'][0][i]
                 similarity = 1.0 / (1.0 + distance)
+                
+                logger.info(f"Result {i}: distance={distance}, similarity={similarity}")
                 
                 if similarity >= similarity_threshold:
                     chunks.append({
                         "content": results['documents'][0][i],
                         "metadata": results['metadatas'][0][i]
                     })
+            
+            logger.info(f"Returning {len(chunks)} chunks after threshold filtering")
             
         else:  # FAISS
             # Search in FAISS

@@ -13,7 +13,7 @@ class QuestionRequest(BaseModel):
     question: str
     file_id: Optional[str] = None
     max_tokens: Optional[int] = 1000
-    similarity_threshold: Optional[float] = 0.7
+    similarity_threshold: Optional[float] = 0.5  # Giảm từ 0.7 xuống 0.5
     top_k: Optional[int] = 3
 
 @router.post("/ask")

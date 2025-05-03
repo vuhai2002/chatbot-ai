@@ -4,10 +4,14 @@ from fastapi.responses import JSONResponse
 from app.api.routes import documents, qa
 from app.config import settings
 from app.utils.logger import setup_logging, get_logger
+from app.db.models import create_tables
 
 # Set up logging
 setup_logging()
 logger = get_logger(__name__)
+
+# Create database tables
+create_tables()
 
 # Initialize FastAPI app
 app = FastAPI(

@@ -1,12 +1,30 @@
 import openai
+import os
+import httpx
 from typing import List, Dict
 from app.config import settings
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Set OpenAI API key
-openai.api_key = settings.OPENAI_API_KEY
+# Xóa các biến môi trường proxy nếu có
+if 'http_proxy' in os.environ:
+    del os.environ['http_proxy']
+if 'https_proxy' in os.environ:
+    del os.environ['https_proxy']
+if 'HTTP_PROXY' in os.environ:
+    del os.environ['HTTP_PROXY']
+if 'HTTPS_PROXY' in os.environ:
+    del os.environ['HTTPS_PROXY']
+
+# Tạo HTTP client không có proxy
+http_client = httpx.Client()
+
+# Tạo client OpenAI sử dụng HTTP client tùy chỉnh
+client = openai.OpenAI(
+    api_key=settings.OPENAI_API_KEY,
+    http_client=http_client
+)
 
 async def get_answer(question: str, context_chunks: List[Dict[str, str]], max_tokens: int = 1000) -> str:
     """
@@ -30,7 +48,7 @@ async def get_answer(question: str, context_chunks: List[Dict[str, str]], max_to
         Hãy trả lời dựa trên ngữ cảnh được cung cấp.
         Nếu câu trả lời không có trong ngữ cảnh, hãy trung thực nói rằng bạn không có thông tin.
         Không được tự tạo ra thông tin hay suy diễn quá xa những gì có trong ngữ cảnh.
-        Trả lời ngắn gọn, súc tích, dễ hiểu.
+        Trả lời đầy đủ thông tin, dễ hiểu.
         """
         
         user_message = f"""
@@ -40,8 +58,9 @@ async def get_answer(question: str, context_chunks: List[Dict[str, str]], max_to
         {formatted_context}
         """
         
-        # Call OpenAI API
-        response = await openai.chat.completions.create(
+        # Call OpenAI API - using client instead of openai global
+        # Remove await since client.chat.completions.create is not async
+        response = client.chat.completions.create(
             model=settings.QA_MODEL,
             messages=[
                 {"role": "system", "content": system_message},
