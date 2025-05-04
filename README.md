@@ -45,6 +45,8 @@ venv\Scripts\activate  # Windows
 
 3. Cài đặt thư viện:
 ```bash
+pip install "pip<24" # Hạ phiên bản pip xuống < 24 (khuyên dùng)
+
 pip install -r requirements.txt
 ```
 
