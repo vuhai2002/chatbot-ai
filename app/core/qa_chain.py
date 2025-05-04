@@ -66,8 +66,8 @@ async def get_answer(question: str, context_chunks: List[Dict[str, str]], max_to
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message}
             ],
-            temperature=0.2,
-            max_tokens=max_tokens,
+            temperature=1.0,
+            max_completion_tokens=max_tokens,  # Changed from max_tokens to max_completion_tokens
         )
         
         return response.choices[0].message.content.strip()

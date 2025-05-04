@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     
     # OpenAI config
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
-    QA_MODEL: str = "gpt-3.5-turbo"
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    QA_MODEL: str = os.getenv("QA_MODEL", "o4-mini")
     
     # Firebase config
     FIREBASE_CREDENTIALS: str = os.getenv("FIREBASE_CREDENTIALS", "")
