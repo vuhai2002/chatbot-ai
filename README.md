@@ -66,6 +66,8 @@ VECTOR_DB=faiss  # or chroma
 5. Khởi chạy ứng dụng:
 ```bash
 python main.py
+
+uvicorn app.main:app --reload
 ```
 
 Ứng dụng sẽ chạy tại http://localhost:8000
