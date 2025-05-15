@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  chatbot-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    container_name: chatbot-app
+    ports:
+      - "8000:8000"  # Internal port, will be accessed via Nginx
+    depends_on:
+      - chatbot-db
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=False
+      - POSTGRES_USER=chatbot_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=chatbot-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=chatbot_db
+      - EMBEDDING_MODEL=text-embedding-3-small
+      - QA_MODEL=gpt-3.5-turbo-0125
+      - FIREBASE_CREDENTIALS=/app/firebase-credentials.json
+      - FIREBASE_BUCKET=${FIREBASE_BUCKET}
+      - VECTOR_DB=chroma
+      - VECTOR_DB_PATH=/app/data/vectordb
+      - LOG_FOLDER=/app/logs
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+    networks:
+      - chatbot-network
+      - nginx-network  # Connect to existing nginx network
+
+  chatbot-db:
+    image: postgres:15
+    restart: always
+    container_name: chatbot-db
+    environment:
+      - POSTGRES_USER=chatbot_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=chatbot_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - chatbot-network
+
+networks:
+  chatbot-network:
+    driver: bridge
+  nginx-network:
+    external: true  # Use existing nginx network, create it if it doesn't exist with: docker network create nginx-network
+
+volumes:
+  postgres_data:
