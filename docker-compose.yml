@@ -9,6 +9,8 @@ services:
     container_name: chatbot-app
     ports:
       - "8000:8000"  # Internal port, will be accessed via Nginx
+    env_file:
+      - .env
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - HOST=${HOST}
@@ -33,9 +35,9 @@ services:
       - ./logs:/app/logs
       - ./firebase-credentials.json:/app/firebase-credentials.json:ro
       - ./app/certs:/app/certs:ro
-    networks:
-      - nginx-network  # Connect to existing nginx network
+    # networks:
+    #   - nginx-network  # Connect to existing nginx network
 
-networks:
-  nginx-network:
-    external: true  # Use existing nginx network, create it if it doesn't exist with: docker network create nginx-network
+# networks:
+#   nginx-network:
+#     external: true  # Use existing nginx network, create it if it doesn't exist with: docker network create nginx-network

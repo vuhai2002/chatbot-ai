@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11
 
 WORKDIR /app
 
@@ -22,4 +22,4 @@ COPY . .
 RUN mkdir -p /app/data/vectordb /app/logs
 
 # Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
