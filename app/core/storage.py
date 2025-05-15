@@ -70,7 +70,7 @@ async def upload_to_firebase(file_id: str, file_content: bytes, filename: str) -
         logger.error(f"Error uploading to Firebase: {str(e)}", exc_info=True)
         raise Exception(f"Lỗi khi tải lên Firebase: {str(e)}")
 
-async def delete_from_firebase(file_id: str, filename: str) -> bool:
+async def delete_from_firebase(file_id: str, filename: str) -> tuple:
     """
     Delete a file from Firebase Storage
     
@@ -79,11 +79,11 @@ async def delete_from_firebase(file_id: str, filename: str) -> bool:
         filename: Original filename
         
     Returns:
-        True if successful
+        Tuple of (success_bool, message)
     """
     if not firebase_app:
         logger.warning("Firebase not initialized. Skipping deletion.")
-        return True
+        return True, "Firebase not initialized"
     
     try:
         # Get bucket
@@ -97,8 +97,15 @@ async def delete_from_firebase(file_id: str, filename: str) -> bool:
         # Delete the blob
         blob.delete()
         
-        return True
+        return True, "Successfully deleted from Firebase"
     
     except Exception as e:
-        logger.error(f"Error deleting from Firebase: {str(e)}", exc_info=True)
-        raise Exception(f"Lỗi khi xóa từ Firebase: {str(e)}")
+        error_message = str(e)
+        if "404" in error_message or "No such object" in error_message:
+            # File doesn't exist, log and continue
+            logger.warning(f"File not found in Firebase: {blob_path}. Continuing...")
+            return False, f"File not found in Firebase: {error_message}"
+        else:
+            # Other error, log but don't raise
+            logger.error(f"Error deleting from Firebase: {error_message}", exc_info=True)
+            return False, f"Error deleting from Firebase: {error_message}"

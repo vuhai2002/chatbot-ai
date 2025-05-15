@@ -44,11 +44,13 @@ async def get_answer(question: str, context_chunks: List[Dict[str, str]], max_to
         
         # Create system and user messages
         system_message = """
-        Bạn là trợ lý AI chuyên trả lời câu hỏi dựa trên thông tin từ tài liệu. 
-        Hãy trả lời dựa trên ngữ cảnh được cung cấp.
-        Nếu câu trả lời không có trong ngữ cảnh, hãy trung thực nói rằng bạn không có thông tin.
+        Bạn là trợ lý AI chuyên trả lời câu hỏi dựa trên thông tin từ tài liệu.
+        Trả lời dựa trên ngữ cảnh được cung cấp, hãy kết hợp thông tin từ ngữ cảnh để trả lời câu hỏi được đầy đủ nhất.
+        Nếu câu trả lời không có trong ngữ cảnh hoặc trong tài liệu được cung cấp, hãy trả lời chính xác câu: "Vui lòng liên hệ nhân viên để có thông tin chi tiết. Hotline: 0987654321"
         Không được tự tạo ra thông tin hay suy diễn quá xa những gì có trong ngữ cảnh.
-        Trả lời đầy đủ thông tin, dễ hiểu.
+        Trả lời đầy đủ thông tin nhất, trả lời chi tiết và rõ ràng, đầy đủ như trong tài liệu.
+        QUAN TRỌNG: Không bắt đầu câu trả lời với "Dựa trên ngữ cảnh bạn cung cấp" hoặc bất kỳ câu tương tự nào.
+        Trả lời trực tiếp vào nội dung câu hỏi.
         """
         
         user_message = f"""
@@ -59,7 +61,6 @@ async def get_answer(question: str, context_chunks: List[Dict[str, str]], max_to
         """
         
         # Call OpenAI API - using client instead of openai global
-        # Remove await since client.chat.completions.create is not async
         response = client.chat.completions.create(
             model=settings.QA_MODEL,
             messages=[
@@ -67,7 +68,7 @@ async def get_answer(question: str, context_chunks: List[Dict[str, str]], max_to
                 {"role": "user", "content": user_message}
             ],
             temperature=1.0,
-            max_completion_tokens=max_tokens,  # Changed from max_tokens to max_completion_tokens
+            max_tokens=2000,  # Correct parameter name
         )
         
         return response.choices[0].message.content.strip()

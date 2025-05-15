@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # OpenAI config
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-    QA_MODEL: str = os.getenv("QA_MODEL", "o4-mini")
+    QA_MODEL: str = os.getenv("QA_MODEL")
     
     # Firebase config
     FIREBASE_CREDENTIALS: str = os.getenv("FIREBASE_CREDENTIALS", "")
@@ -26,10 +26,10 @@ class Settings(BaseSettings):
     VECTOR_DB_PATH: str = os.getenv("VECTOR_DB_PATH", "./vectordb")
     
     # PostgreSQL config
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
-    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "chatbot_db")
     
     # File upload settings

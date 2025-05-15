@@ -12,12 +12,19 @@ from app.db.models import FileMetadata, get_db_session
 router = APIRouter(prefix="/documents", tags=["Documents"])
 logger = get_logger(__name__)
 
+async def get_current_document(db_session):
+    """Get the currently stored document, if any"""
+    return db_session.query(FileMetadata).first()
+
 @router.post("/upload", status_code=201)
 async def upload_document(
     file: UploadFile = File(...),
     db_session=Depends(get_db_session)
 ):
-    """Upload a document, process it and store in the system"""
+    """Upload a document, replacing any existing document in the system"""
+    firebase_delete_message = None
+    vectordb_delete_message = None
+    
     try:
         # Check file extension
         _, file_ext = os.path.splitext(file.filename)
@@ -34,6 +41,31 @@ async def upload_document(
                 status_code=400,
                 detail=f"File quá lớn. Kích thước tối đa: {settings.MAX_FILE_SIZE / (1024 * 1024)}MB"
             )
+        
+        # Delete existing document if any
+        existing_doc = await get_current_document(db_session)
+        if existing_doc:
+            # Try to delete from Firebase - capture result but continue regardless
+            try:
+                success, message = await delete_from_firebase(existing_doc.file_id, existing_doc.filename)
+                if not success:
+                    firebase_delete_message = message
+                    logger.warning(f"Firebase deletion warning: {message}")
+            except Exception as e:
+                firebase_delete_message = str(e)
+                logger.warning(f"Firebase deletion exception: {str(e)}")
+            
+            # Try to delete from vector DB - capture result but continue regardless
+            try:
+                await delete_document_from_vectordb(existing_doc.file_id)
+            except Exception as e:
+                vectordb_delete_message = str(e)
+                logger.warning(f"Vector DB deletion exception: {str(e)}")
+            
+            # Delete from database
+            db_session.delete(existing_doc)
+            db_session.commit()
+            logger.info(f"Deleted existing document from database: {existing_doc.filename}")
         
         # Create unique ID for the file
         file_id = str(uuid.uuid4())
@@ -60,10 +92,20 @@ async def upload_document(
         db_session.add(new_file)
         db_session.commit()
         
-        return {
-            "message": "Upload thành công",
-            "file_id": file_id
+        response = {
+            "message": "Upload thành công. File cũ đã bị thay thế.",
+            "file_id": file_id,
+            "filename": file.filename
         }
+        
+        # Add warnings to response if there were any
+        if firebase_delete_message:
+            response["firebase_warning"] = firebase_delete_message
+            
+        if vectordb_delete_message:
+            response["vectordb_warning"] = vectordb_delete_message
+            
+        return response
         
     except HTTPException as e:
         # Re-raise HTTP exceptions
@@ -74,52 +116,61 @@ async def upload_document(
     finally:
         await file.seek(0)
 
-@router.delete("/{file_id}")
-async def delete_document(file_id: str, db_session=Depends(get_db_session)):
-    """Delete a document and its embeddings by ID"""
+@router.get("/current")
+async def get_current_document_info(db_session=Depends(get_db_session)):
+    """Get information about the currently uploaded document"""
+    file = await get_current_document(db_session)
+    if not file:
+        raise HTTPException(status_code=404, detail="Không có tài liệu nào được tải lên")
+    
+    return {
+        "file_id": file.file_id,
+        "filename": file.filename,
+        "upload_time": file.upload_time,
+        "file_size": file.file_size,
+        "file_type": file.file_type
+    }
+
+@router.delete("/current")
+async def delete_current_document(db_session=Depends(get_db_session)):
+    """Delete the currently uploaded document"""
+    file = await get_current_document(db_session)
+    if not file:
+        raise HTTPException(status_code=404, detail="Không có tài liệu nào để xóa")
+    
+    firebase_message = None
+    vectordb_message = None
+    
+    # Delete from Firebase - capture result but continue regardless
     try:
-        # Get file metadata
-        file_metadata = db_session.query(FileMetadata).filter_by(file_id=file_id).first()
-        if not file_metadata:
-            raise HTTPException(status_code=404, detail=f"File với ID {file_id} không tồn tại")
-        
-        # Delete from Firebase
-        await delete_from_firebase(file_id, file_metadata.filename)
-        
-        # Delete from vector DB
-        await delete_document_from_vectordb(file_id)
-        
-        # Delete metadata from database
-        db_session.delete(file_metadata)
+        success, message = await delete_from_firebase(file.file_id, file.filename)
+        if not success:
+            firebase_message = message
+            logger.warning(f"Firebase deletion warning: {message}")
+    except Exception as e:
+        firebase_message = str(e)
+        logger.warning(f"Firebase deletion exception: {str(e)}")
+    
+    # Delete from vector DB - capture result but continue regardless
+    try:
+        await delete_document_from_vectordb(file.file_id)
+    except Exception as e:
+        vectordb_message = str(e)
+        logger.warning(f"Vector DB deletion exception: {str(e)}")
+    
+    # Always delete metadata from database
+    try:
+        db_session.delete(file)
         db_session.commit()
         
-        return {"message": "Xoá thành công"}
+        response = {"message": "Xoá thành công"}
+        if firebase_message:
+            response["firebase_warning"] = firebase_message
+        if vectordb_message:
+            response["vectordb_warning"] = vectordb_message
         
-    except HTTPException as e:
-        # Re-raise HTTP exceptions
-        raise
+        return response
     except Exception as e:
-        logger.error(f"Error deleting document {file_id}", exc_info=True)
+        logger.error(f"Error deleting document metadata", exc_info=True)
         db_session.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/")
-async def list_documents(db_session=Depends(get_db_session)):
-    """List all uploaded documents"""
-    try:
-        files = db_session.query(FileMetadata).all()
-        return {
-            "documents": [
-                {
-                    "file_id": file.file_id,
-                    "filename": file.filename,
-                    "upload_time": file.upload_time,
-                    "file_size": file.file_size,
-                    "file_type": file.file_type
-                } 
-                for file in files
-            ]
-        }
-    except Exception as e:
-        logger.error("Error listing documents", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
